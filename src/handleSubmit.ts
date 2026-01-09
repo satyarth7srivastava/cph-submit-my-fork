@@ -60,14 +60,26 @@ export const handleSubmit = async (
             files: ['/dist/injectedScript.js'],
         });
     }
-    chrome.tabs.sendMessage(tabId, {
-        type: 'cph-submit',
-        problemName,
-        languageId,
-        sourceCode,
-        url: problemUrl,
-    });
-    log('Sending message to tab with script');
+    // Wait for tab to fully load before sending message
+    const sendMessageWhenReady = () => {
+        chrome.tabs.get(tabId, (tab) => {
+            if (tab.status === 'complete') {
+                chrome.tabs.sendMessage(tabId, {
+                    type: 'cph-submit',
+                    problemName,
+                    languageId,
+                    sourceCode,
+                    url: problemUrl,
+                });
+                log('Message sent to fully loaded tab');
+            } else {
+                // Retry after short delay
+                log('Tab not ready, retrying...');
+                setTimeout(sendMessageWhenReady, 100);
+            }
+        });
+    };
+    sendMessageWhenReady();
 
     const filter = {
         url: [{ urlContains: 'codeforces.com/problemset/status' }],
