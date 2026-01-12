@@ -4,6 +4,27 @@ import { CphSubmitResponse, CphEmptyResponse } from './types';
 import { handleSubmit } from './handleSubmit';
 import log from './log';
 
+declare const browser: any;
+
+if (typeof browser !== 'undefined') {
+    self.chrome = browser;
+}
+
+// Track connected ports to keep service worker alive
+const connectedPorts: Set<chrome.runtime.Port> = new Set();
+
+chrome.runtime.onConnect.addListener((port) => {
+    if (port.name === 'cph-keep-alive') {
+        connectedPorts.add(port);
+        log('Keep-alive port connected, total ports:', connectedPorts.size);
+
+        port.onDisconnect.addListener(() => {
+            connectedPorts.delete(port);
+            log('Keep-alive port disconnected, total ports:', connectedPorts.size);
+        });
+    }
+});
+
 const mainLoop = async () => {
     let cphResponse;
     try {
